@@ -1,0 +1,112 @@
+%extract onsets for SPM
+clear all; close all; clc; 
+path = '/project/3014036.01/behavioural'; 
+cd(path)
+
+%subj_names = dir; subject_ids = subj_names(4:end); 
+%EXCLUDE those subject which dont have ALL blocks:
+%sub-001 - no 1st task; sub-011 - 1st block not full; sub-023 - splitted task3; sub-029-no task2;  
+%sub006 - weird things with the log!
+subject_ids = {'sub002','sub008','sub012', 'sub013', 'sub014', 'sub015', 'sub016', 'sub017', 'sub018', 'sub019', ...
+    'sub020', 'sub021', 'sub022', 'sub024', 'sub025', 'sub026', 'sub027', 'sub028', 'sub030', 'sub031', 'sub033', 'sub034', 'sub035', 'sub037', 'sub038', 'sub039'};
+subject_key = [1, 1,2,1,1,1,2,2,1,1,1,1,1,2,2,1,2,1,1,1,2,2,2,2,2,1];
+
+
+%% sub 33 ==> option2; 38 ==> option 2; 39 ==> option 1;
+%info about block order: 
+%option 1 = task1 -> task2 -> task3
+%option 2 = task1 -> task3 -> task2
+%1 - always 1st, uncertain; 2 -  threat ; 3 - blame; 
+%%
+for isub = 24 %1:size(subject_ids, 2)
+    cur_subj = fullfile(path,subject_ids{isub}); 
+    index_cur = strsplit(subject_ids{isub}, 'sub'); index = index_cur{2}; cur_ref = strcat('pulse',index, '.csv'); %index current pulse record
+    cur_ref = fullfile(cur_subj, cur_ref);
+    %extract reference time 
+    fileID = fopen(cur_ref);
+    REF_TIME = textscan(fileID,'%s');
+    fclose(fileID);
+    REF_1block = REF_TIME{1}{30};  %31th is 0 scan == reference
+    
+    %climate/immigration/healthcare per block
+    %RUNS = {'_first.csv', '_second.csv', '_third.csv'};
+    %RUNS_out = {'_first', '_second', '_third'};
+    
+    %NOT!sequntial! second - thread, third - blame
+    option_1 = {'_first.csv', '_second.csv', '_third.csv'};
+    option_1_out = {'_first', '_second', '_third'};
+    option_2 = {'_first.csv', '_third.csv','_second.csv'};
+    option_2_out = {'_first', '_third','_second'};
+    
+    if subject_key(isub) == 1
+        RUNS = option_1;
+        RUNS_out = option_1_out;
+    else
+        RUNS = option_2;
+        RUNS_out = option_2_out;
+    end
+    
+    for irun = 1:size(RUNS,2)
+        
+        block_one = fullfile(cur_subj, strcat('data',index, RUNS{irun}));
+        fileID = fopen(block_one);
+        B1_TIME = textscan(fileID,'%s');
+        fclose(fileID);
+
+        %find the onset for the each of the TOPICS
+        BLOCK1 = B1_TIME{1}; 
+        for count = 1:size(BLOCK1,1)
+            Immigration(count,:) = ~isempty(strfind(BLOCK1{count}, 'IM')); %1 - yes; 0 - no
+            Health(count,:) = ~isempty(strfind(BLOCK1{count}, 'HE'));
+            Climate(count,:) = ~isempty(strfind(BLOCK1{count}, 'CL'));
+        end   
+        %check
+        %[Immigration Health Climate]
+
+        %% references differ: for block1 it is 31oth pulse
+        %for block2, 3: take first pulse in the block and make it 0!
+       
+        if irun == 1
+            REF = REF_1block; 
+            for_2nd_bl = strsplit(BLOCK1{end},',');REF_FOR_2ND_block = for_2nd_bl{end};
+            %REF_FOR_3RD_block = 0;
+        elseif irun == 2
+            for_3rd_bl = strsplit(BLOCK1{end},',');REF_FOR_3RD_block = for_3rd_bl{end};
+            REF = REF_FOR_2ND_block;    
+        elseif irun == 3
+            REF = REF_FOR_3RD_block;
+        end
+        
+        
+        format short g
+        Total_IM = BLOCK1(Immigration); 
+        for i = 1:size(Total_IM,1)
+            RT_IM_all = strsplit(Total_IM{i}, ','); RT_IM_cur = RT_IM_all{3};
+            RT_IM(i,:) = str2num(RT_IM_cur) - str2num(REF);
+        end    
+
+        Total_HE = BLOCK1(Health); 
+        for ih = 1:size(Total_HE,1)
+            RT_HE_all = strsplit(Total_HE{ih}, ','); RT_HE_cur = RT_HE_all{3};
+            RT_HE(ih,:) = str2num(RT_HE_cur) - str2num(REF);
+        end    
+        Total_CL = BLOCK1(Climate); 
+        for ic = 1:size(Total_CL,1)
+            RT_CL_all = strsplit(Total_CL{ic}, ','); RT_CL_cur = RT_CL_all{3};
+            RT_CL(ic,:) = str2num(RT_CL_cur) - str2num(REF);
+        end
+       
+       
+       %pack onsets
+       onsets = cell(1,3);onsets{1} = RT_IM; onsets{2} = RT_HE; onsets{3} = RT_CL;
+       names = cell(1,3); names{1} = 'IM'; names{2} = 'HE'; names{3} = 'CL';
+       durations = cell(1,3); durations{1} = 50; durations{2} = 50; durations{3} = 50; 
+ 
+       
+       output_block = fullfile(cur_subj, strcat('data',index, RUNS_out{irun}));
+       mkdir(output_block)
+       save(fullfile(output_block,'onsets.mat'), 'names', 'onsets', 'durations')
+       clearvars -except path subj_names cur_subj REF subject_ids index isub RUNS RUNS_out REF_FOR_2ND_block REF_FOR_3RD_block subject_key
+    end
+    clear REF_FOR_2ND_block REF_FOR_3RD_block
+end
