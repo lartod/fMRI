@@ -1,0 +1,105 @@
+%-----------------------------------------------------------------------
+% Job saved on 13-Jun-2019 21:30:04 by cfg_util (rev $Rev: 7345 $)
+% spm SPM - SPM12 (7487)
+% cfg_basicio BasicIO - Unknown
+%-----------------------------------------------------------------------
+clear all; close all; clc;
+addpath('/home/common/matlab/spm12')
+study_path =   '/project/3014036.01'; cd(study_path);
+
+subject_ids = {'sub-008','sub-012', 'sub-013', 'sub-014', 'sub-015', 'sub-016', 'sub-017', 'sub-018', 'sub-019', ...
+    'sub-020', 'sub-022', 'sub-024', 'sub-025', 'sub-026', 'sub-027', 'sub-028', 'sub-030', 'sub-031', 'sub-033', 'sub-034', 'sub-035', 'sub-038', 'sub-039'};
+% nope for: 'sub-002','sub-021','sub-037', 
+subject_key = [1,2,1,1,1,2,2,1,1,1,1,2,2,1,2,1,1,1,2,2,2,2,1];
+
+for subj = 1:size(subject_ids,2)
+    fprintf(['Subject ', num2str(subject_ids{subj}), '\n'])
+    subject_id=subject_ids{subj};
+    beta_path=fullfile(study_path, 'stats/1stLevel',subject_id,'/');
+    
+    B     = dir([beta_path, 'con*.nii']);
+    Bcell = cellstr(vertcat(B(:).name));
+    Bcell = cellfun(@(x) [beta_path, x], Bcell, 'un', 0);
+    nB = numel(Bcell);
+    H = spm_vol(Bcell);    
+    Btype = cellfun(@(x) x.descrip, H, 'un', 0);
+    
+     option_1 = {'task1', 'task2', 'task3'};
+     option_2 = {'task1', 'task3', 'task2'};
+                 
+             if subject_key(subj) == 1
+                RUNS = option_1;                
+            else
+                RUNS = option_2;              
+            end
+    
+     for t = 1:size(Btype,1)
+        x  = Btype{t};
+        first_bl(t, 1) = ~isempty(strfind(x,'first')); %1st block, SB(1), always uncertain condition
+        con_unc = Bcell(first_bl);
+        
+         if  strcmp(RUNS{2},'task2')== 1 %| strcmp(RUNS{3},'task2') % then it is threat            
+            index_thr(t, 1) = ~isempty(strfind(x,'second')); %2nd
+            con_thr = Bcell(index_thr);      
+        elseif strcmp(RUNS{3},'task2') == 1            
+            index_thr(t, 1) = ~isempty(strfind(x,'third')); %2nd
+            con_thr = Bcell(index_thr);             
+         end
+        
+        if  strcmp(RUNS{2},'task3')== 1 %| strcmp(RUNS{3},'task2') % then it is blame           
+            index_blame(t, 1) = ~isempty(strfind(x,'second')); %2nd
+            con_blame = Bcell(index_blame);      
+        elseif strcmp(RUNS{3},'task3') == 1            
+            index_blame(t, 1) = ~isempty(strfind(x,'third')); %2nd
+            con_blame = Bcell(index_blame);             
+        end
+         
+     end
+     
+    con_uncertainty = horzcat(con_unc{1},',1');
+    con_threat = horzcat(con_thr{1},',1');
+    con_blame = horzcat(con_blame{1},',1');    
+    
+    to_stack_unc(subj,:) =  con_uncertainty;
+    to_stack_thr(subj,:) =  con_threat;
+    to_stack_blame(subj,:) =  con_blame;
+    
+    clearvars -except to_stack_unc to_stack_thr to_stack_blame subject_ids subject_key study_path
+end
+
+ unc = cellstr(to_stack_unc);
+ threat = cellstr(to_stack_thr);
+ blame = cellstr(to_stack_blame);
+
+
+matlabbatch{1}.spm.stats.factorial_design.dir = {'/project/3014036.01/stats/2ndLevel'};
+matlabbatch{1}.spm.stats.factorial_design.des.anova.icell(1).scans = unc; %{
+                                                                     % '/project/3014036.01/stats/1stLevel/sub-008/con_0002.nii,1'
+                                                                     % '/project/3014036.01/stats/1stLevel/sub-012/con_0001.nii,1'
+                                                                     % }; %uncertain
+matlabbatch{1}.spm.stats.factorial_design.des.anova.icell(2).scans = threat; %{
+                                                                     % '/project/3014036.01/stats/1stLevel/sub-008/con_0003.nii,1'
+                                                                     % '/project/3014036.01/stats/1stLevel/sub-012/con_0002.nii,1'
+                                                                     % }; %threat
+matlabbatch{1}.spm.stats.factorial_design.des.anova.icell(3).scans = blame; %{
+                                                                     % '/project/3014036.01/stats/1stLevel/sub-008/con_0004.nii,1'
+                                                                     % '/project/3014036.01/stats/1stLevel/sub-012/con_0002.nii,1'
+                                                                     % }; %blame
+matlabbatch{1}.spm.stats.factorial_design.des.anova.dept = 1;
+matlabbatch{1}.spm.stats.factorial_design.des.anova.variance = 1;
+matlabbatch{1}.spm.stats.factorial_design.des.anova.gmsca = 0;
+matlabbatch{1}.spm.stats.factorial_design.des.anova.ancova = 0;
+matlabbatch{1}.spm.stats.factorial_design.cov = struct('c', {}, 'cname', {}, 'iCFI', {}, 'iCC', {});
+matlabbatch{1}.spm.stats.factorial_design.multi_cov = struct('files', {}, 'iCFI', {}, 'iCC', {});
+matlabbatch{1}.spm.stats.factorial_design.masking.tm.tm_none = 1;
+matlabbatch{1}.spm.stats.factorial_design.masking.im = 1;
+matlabbatch{1}.spm.stats.factorial_design.masking.em = {''};
+matlabbatch{1}.spm.stats.factorial_design.globalc.g_omit = 1;
+matlabbatch{1}.spm.stats.factorial_design.globalm.gmsca.gmsca_no = 1;
+matlabbatch{1}.spm.stats.factorial_design.globalm.glonorm = 1;
+
+    %run batch
+    spm('defaults', 'fmri');
+    spm_jobman('initcfg'); 
+    spm_jobman('run', matlabbatch);
+    
