@@ -1,0 +1,26 @@
+%% merge 4D file
+!fslmerge -t all_ME M_volume*.nii!gunzip all_ME.nii.gz
+
+%!tar -xvf 002-t1_mprage_sag_p2_iso_1.0.tar
+
+path_adjust = '/project/3014036.01/raw/sub-033/ses-mri01';
+content = dir(path_adjust); content = content(3:end);
+for i = 1:size(content,1)
+    temp_file = content(i).name; 
+    temp_file_out = strsplit(temp_file, '.tar.gz');
+    temp_file_out2 = fullfile(path_adjust, temp_file_out{1});
+    mkdir(temp_file_out{1})
+    %!tar xvzf  temp_file -C  temp_file_out{1}
+     [s, w] = unix(['tar xvzf ' temp_file ' -C' ' ' temp_file_out2]); 
+   
+end
+
+%!tar xvzf 014-gre_field_mappingMB3ME.tar.gz -C 014-gre_field_mappingMB3ME
+
+%% plot motion params
+rp = spm_load(spm_select);
+figure; subplot(2,1,1);
+plot(rp(:,1:3));title('translation');
+set(gca,'xlim',[0 size(rp,1)+1]);
+subplot(2,1,2);plot(rp(:,4:6));title('rotation');
+set(gca,'xlim',[0 size(rp,1)+1]);
