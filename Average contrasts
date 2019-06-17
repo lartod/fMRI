@@ -1,0 +1,67 @@
+%Average cross runs ==> .con-----------------------------------------------------------------------
+% Job saved on 13-Jun-2019 20:01:46 by cfg_util (rev $Rev: 7345 $)
+% spm SPM - SPM12 (7487)
+% cfg_basicio BasicIO - Unknown
+%-----------------------------------------------------------------------
+clear all; close all; clc;
+addpath('/home/common/matlab/spm12')
+study_path =   '/project/3014036.01'; cd(study_path);
+
+subject_ids = {'sub-008','sub-012', 'sub-013', 'sub-014', 'sub-015', 'sub-016', 'sub-017', 'sub-018', 'sub-019', ...
+    'sub-020', 'sub-022', 'sub-024', 'sub-025', 'sub-026', 'sub-027', 'sub-028', 'sub-030', 'sub-031', 'sub-033', 'sub-034', 'sub-035', 'sub-038', 'sub-039'};
+% nope for: 'sub-002','sub-021','sub-037', 
+
+for subj = 1:size(subject_ids,2)
+    fprintf(['Subject ', num2str(subject_ids{subj}), '\n'])
+    subject_id=subject_ids{subj};
+    beta_path=fullfile(study_path, 'stats/1stLevel',subject_id,'/');
+    
+    B     = dir([beta_path, 'beta*.nii']);
+    Bcell = cellstr(vertcat(B(:).name));
+    Bcell = cellfun(@(x) [beta_path, x], Bcell, 'un', 0);
+    nB = numel(Bcell);
+    H = spm_vol(Bcell);    
+    Btype = cellfun(@(x) x.descrip, H, 'un', 0);
+    
+    
+     for t = 1:size(Btype,1)
+        x  = Btype{t};
+        index_IM_unc(t, 1) = ~isempty(strfind(x,'Sn(1) IM')); %1st block, SB(1), always uncertain condition
+        index_CL_unc(t, 1) = ~isempty(strfind(x,'Sn(1) CL'));
+        index_HE_unc(t, 1) = ~isempty(strfind(x,'Sn(1) HE'));
+        index_first_block = double(index_IM_unc+ index_CL_unc +index_HE_unc);
+        index_IM_2b(t, 1) = ~isempty(strfind(x,'Sn(2) IM')); %1st block, SB(1), always uncertain condition
+        index_CL_2b(t, 1) = ~isempty(strfind(x,'Sn(2) CL'));
+        index_HE_2b(t, 1) = ~isempty(strfind(x,'Sn(2) HE'));
+        index_second_block = double(index_IM_2b+ index_CL_2b +index_HE_2b);
+        index_IM_3b(t, 1) = ~isempty(strfind(x,'Sn(3) IM')); %1st block, SB(1), always uncertain condition
+        index_CL_3b(t, 1) = ~isempty(strfind(x,'Sn(3) CL'));
+        index_HE_3b(t, 1) = ~isempty(strfind(x,'Sn(3) HE'));
+        index_third_block = double(index_IM_3b+ index_CL_3b +index_HE_3b);
+     end
+     
+    all_runs = [index_first_block index_second_block index_third_block];             
+    all_conditions = {'first', 'second', 'third'};
+    %%
+    %for irun = 1:size(all_runs, 2)
+        cur_subject = {fullfile(study_path,'stats/1stLevel', subject_ids{subj}, 'SPM.mat')};
+        
+        matlabbatch{1}.spm.stats.con.spmmat = cur_subject;
+        matlabbatch{1}.spm.stats.con.consess{1}.tcon.name = all_conditions{1};
+        matlabbatch{1}.spm.stats.con.consess{1}.tcon.weights = all_runs(:,1)';
+        matlabbatch{1}.spm.stats.con.consess{1}.tcon.sessrep = 'none';
+        matlabbatch{1}.spm.stats.con.consess{2}.tcon.name = all_conditions{2};
+        matlabbatch{1}.spm.stats.con.consess{2}.tcon.weights = all_runs(:,2)';
+        matlabbatch{1}.spm.stats.con.consess{2}.tcon.sessrep = 'none';
+        matlabbatch{1}.spm.stats.con.consess{3}.tcon.name = all_conditions{3};
+        matlabbatch{1}.spm.stats.con.consess{3}.tcon.weights = all_runs(:,3)';
+        matlabbatch{1}.spm.stats.con.consess{3}.tcon.sessrep = 'none';
+        
+        spm('defaults', 'fmri');
+        spm_jobman('initcfg');
+        spm_jobman('run', matlabbatch);
+        
+        clearvars -except study_path subject_ids all_runs all_conditions
+    %end
+
+end
