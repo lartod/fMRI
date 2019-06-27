@@ -1,0 +1,73 @@
+%mvpa, for ambiguous faces
+clear all; close all; clc; 
+study_path = '/home/predatt/lartod/fMRI/FaceGender/DATA/FSL_analysis/';
+addpath('/home/predatt/lartod/fMRI/FaceGender/DATA/FSL_analysis/scripts/functions')
+cd(study_path)
+subjects = {'SUB02', 'SUB03','SUB05','SUB07','SUB09','SUB10','SUB13','SUB14','SUB16', 'SUB17','SUB18','SUB19','SUB23','SUB24','SUB25','SUB26','SUB27','SUB29','SUB06', 'SUB11','SUB21', 'SUB22'};
+
+addpath('/home/common/matlab/spm12');
+%addpath(genpath('/home/predatt/lartod/Toolboxes/v2CoSMoMVPA-master'));
+task_index = fullfile(study_path, 'logs', 'main');
+tasks = {'task1', 'task2'};
+
+for subj = 1:size(subjects,2)
+   %account for task1/task2
+   for taak = 1:size(tasks, 2)
+       cur_log = fullfile(task_index, subjects{subj}, tasks{taak});
+       
+       %list all blocks for a specific task
+       mats = dir(fullfile(cur_log, '*mat'));
+       for mmats = 1:size(mats)
+           idxs = strsplit(mats(mmats).name, '.mat');
+           idx2 = idxs(1);
+           idx3 = strsplit(idx2{1}, 'block');
+           out_idx(mmats,1) = idx3(2);
+       end
+       
+       %append these to the blocks where the statsdata is 
+       for runs = 1:size(out_idx,1)
+           cur_data = fullfile(study_path,'data', subjects{subj}, 'func', strcat('RUN',out_idx{runs},'.feat'), 'stats');
+           %copy only tstat images to the new folder
+           t_files = dir(char((fullfile(cur_data,'tstat*.nii.gz')))); % current tstat imges per RUN
+           destfolder = fullfile(study_path,'data', subjects{subj}, 'func_copy',tasks{taak}, strcat('RUN',out_idx{runs},'.feat')); %where to copy t-stat images 
+           mkdir(destfolder)
+           for all_files = 1:size(t_files,1)
+               sourcefile = fullfile(cur_data, t_files(all_files).name);
+               copyfile(sourcefile, destfolder) 
+               cd(destfolder)
+               !gunzip *.nii.gz
+           end
+       end
+       
+       clear out_idx
+       
+       %get the data from images: [60×275200 double]
+      copied_home = fullfile(study_path,'data', subjects{subj}, 'func_copy',tasks{taak}); %where to copy t-stat images 
+      cur_content = dir(char((fullfile(copied_home,'*.feat')))); 
+      sorted_runs = natsort({cur_content(:).name});
+       for run = 1:size(cur_content,1)
+            %for each of the folders
+            cur_folder = fullfile(copied_home,sorted_runs{run});
+             %get data out ofeach t-file
+            files = dir(char((fullfile(cur_folder,'tstat*.nii'))));
+            %sort them
+            sorted = natsort({files(:).name});
+            for f = 1:size(files,1)
+                [cur_tstats, XYZ] = spm_read_vols(spm_vol(fullfile(cur_folder, sorted{f})));
+                cur_T = spm_get_data(fullfile(cur_folder, sorted{f}), XYZ);
+                out(f,:) = cur_T;
+                out_transit = out;
+            end
+            clear sorted files cur_tstats XYZ cur_T out
+            out_all_blocks{run, :} = out_transit;           
+       end
+       %combine tstats across runs
+       feature_space = {cat(1, out_all_blocks{:})};
+       %save feature space per run per subject
+       folder_fsp = fullfile(copied_home, 'feature_sp');
+       mkdir(folder_fsp)
+       mat_fl = fullfile(folder_fsp,'feature_space.mat');
+       save(mat_fl,'feature_space')
+       clear feature_space
+   end
+end
