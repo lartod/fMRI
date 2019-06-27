@@ -57,7 +57,8 @@ for subj = 1:size(subjects,2)
     mkdir(folder_lab)
     mat_lab = fullfile(folder_lab,'labels.mat');
     save(mat_lab,'all_labels')
-    clear all_labels
+    clearvars -except study_path subjects beh_subj task_index tasks subj taak log_path
+
     
    end
 end
