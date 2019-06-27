@@ -1,0 +1,63 @@
+%mvpa, for ambiguous faces:
+%create a tag/labels to use along with the feature space
+clear all; close all; clc; 
+study_path = '/home/predatt/lartod/fMRI/FaceGender/DATA/FSL_analysis/';
+addpath('/home/predatt/lartod/fMRI/FaceGender/DATA/FSL_analysis/scripts/functions')
+cd(study_path)
+subjects = {'SUB02', 'SUB03','SUB05','SUB07','SUB09','SUB10','SUB13','SUB14','SUB16', 'SUB17','SUB18','SUB19','SUB23','SUB24','SUB25','SUB26','SUB27','SUB29','SUB06', 'SUB11','SUB21', 'SUB22'};
+beh_subj = {'Subj02', 'Subj03','Subj05','Subj07','Subj09','Subj10','Subj13','Subj14','Subj16', 'Subj17','Subj18','Subj19','Subj23','Subj24','Subj25','Subj26','Subj27','Subj29','Subj06', 'Subj11','Subj21', 'Subj22'};
+
+task_index = fullfile(study_path, 'logs', 'main');
+tasks = {'task1', 'task2'};
+
+log_path = '/home/predatt/lartod/fMRI/FaceGender/DATA/FSL_analysis/logs/main4MVPA_ver2';
+
+for subj = 1:size(subjects,2)
+   %account for task1/task2
+   for taak = 1:size(tasks, 2)
+       cur_log = fullfile(task_index, subjects{subj}, tasks{taak});
+       
+       %list all blocks for a specific task
+       mats = dir(fullfile(cur_log, '*mat'));
+       for mmats = 1:size(mats)
+           idxs = strsplit(mats(mmats).name, '.mat');
+           idx2 = idxs(1);
+           idx3 = strsplit(idx2{1}, 'block');
+           out_idx(mmats,1) = idx3(2);
+       end
+       
+     %index necessary blocks
+     sorted_runs = natsort(out_idx); %sort runs
+     for run = 1:size(out_idx,1)
+         cur_data = fullfile(log_path,beh_subj{subj},strcat('block', sorted_runs{run}));
+         txts = dir(fullfile(cur_data, '*txt'));
+         all_labels = {txts(:).name};
+         for l = 1:size(all_labels,2)
+             lbl_transit = strsplit(all_labels{l}, '.txt');
+             lbl(l,:) = lbl_transit(1);
+         end   
+     cur_block = strcat('block', sorted_runs{run});    
+     out_all_lbls(1).(cur_block) = lbl; 
+     clear lbl lbl_transit
+     end
+     
+     %average within the block
+     for nbl = 1:size(sorted_runs)         
+         with_block = strcat('block', sorted_runs{nbl});
+         new_struct(1).(with_block)= {cat(1, out_all_lbls.(with_block){:})};
+     end
+    %average between the blocks
+    
+    C = struct2cell(new_struct);
+    feature_labels = vertcat(C{:});
+    all_labels = vertcat(feature_labels{:});
+    
+    %save LABELSper run per subject
+    folder_lab = fullfile(study_path,'data',subjects{subj}, 'func_copy',tasks{taak},'labels');
+    mkdir(folder_lab)
+    mat_lab = fullfile(folder_lab,'labels.mat');
+    save(mat_lab,'all_labels')
+    clear all_labels
+    
+   end
+end
