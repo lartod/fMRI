@@ -1,4 +1,4 @@
 step1: Beta estimation per trial (in FSL)
 step2: Register t-stat images to MNI space (func2MNI)
 step3: copy registered images, sort according to the task# and extract the data from it (get_data_from_nii_gz)
-step4: make labels
+step4: make labels (labels_extraction)
