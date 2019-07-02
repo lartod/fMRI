@@ -1,0 +1,29 @@
+%MNI t-stats
+clear all; close all; clc; 
+study_path = '/home/predatt/lartod/fMRI/FaceGender/DATA/FSL_analysis/data';
+subject_ids = {'SUB02', 'SUB03','SUB05','SUB07','SUB09','SUB10','SUB13','SUB14','SUB16', 'SUB17','SUB18','SUB19','SUB23','SUB24','SUB25','SUB26','SUB27','SUB29','SUB06', 'SUB11','SUB21', 'SUB22'};
+runs = {'RUN1','RUN2', 'RUN3', 'RUN4', 'RUN5', 'RUN6', 'RUN7', 'RUN8', 'RUN9', 'RUN10', 'RUN11', 'RUN12'};
+mni_standard = '/opt/fsl/5.0.9/data/standard/MNI152_T1_2mm_brain';
+tasks = {'task1', 'task2'};
+
+for subj=1:size(subject_ids,2)
+    
+    subject_id=subject_ids{subj};
+    data_path=fullfile(study_path, subject_id, 'func');
+    
+        for irun = 1:size(runs,2)
+            icur = fullfile(data_path, strcat(runs{irun}, '.feat'));
+            tstat_dir = fullfile(icur,'stats','tst*'); 
+            all_ts = dir(tstat_dir);
+            for tfiles = 1:size(all_ts,1)
+                tstat = fullfile(icur, 'stats', all_ts(tfiles).name);
+                outpath = fullfile(icur, 'stats', strcat('ST', all_ts(tfiles).name));
+
+                %convert_xfm -omat refvol2invol.mat -inverse invol2refvol.mat
+                %transmatrix = fullfile(icur,'reg/highres2standard.mat');
+                transmatrix = fullfile(icur,'reg/example_func2standard.mat');
+                [s, w] = unix(['flirt ' ,' -in ' tstat, ' -ref ' mni_standard,  ' -out ' outpath,' -init ' transmatrix, ' -applyxfm']); 
+            end
+            clear icur tstat outpath transmatrix
+        end
+end
