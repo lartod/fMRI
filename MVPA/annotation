@@ -1,2 +1,4 @@
-Beta estimation per trial (in FSL)
-Register tstat images to MNI space
+step1: Beta estimation per trial (in FSL)
+step2: Register t-stat images to MNI space (func2MNI)
+step3: copy registered images, sort according to the task# and extract the data from it
+step4: make labels
