@@ -1,0 +1,45 @@
+%mask t-stats using masks you selected
+clear all; close all; clc; 
+addpath('/home/common/matlab/spm12');
+addpath('/home/predatt/lartod/fMRI/FaceGender/DATA/FSL_analysis/scripts/functions');
+
+study_path = '/home/predatt/lartod/fMRI/FaceGender/DATA/FSL_analysis/data';
+cd(study_path)
+subject_ids = {'SUB02', 'SUB03','SUB05','SUB07','SUB09','SUB10','SUB13','SUB14','SUB16', 'SUB17','SUB18','SUB19','SUB23','SUB24','SUB25','SUB26','SUB27','SUB29','SUB06', 'SUB11','SUB21', 'SUB22'};
+tasks = {'task1', 'task2'};
+
+masks_path = '/home/predatt/lartod/fMRI/FaceGender/DATA/FSL_analysis/masks_mvpa';
+all_masks = dir(fullfile(masks_path, '*.nii'));
+%!gunzip *.nii.gz
+for m = 1:size(all_masks,2)
+    for subj=1:size(subject_ids,2)
+        for t = 1:size(tasks,2)
+            data_path=fullfile(study_path, subject_ids{subj}, 'func_copy', tasks{t});
+            cur_runs = dir(fullfile(data_path, '*.feat')); %only feats
+            %loop across runs per task
+            for rr = 1:size(cur_runs,1)
+                cur_t = dir(fullfile(data_path, cur_runs(rr).name, '*.nii')); %all t-stats per run
+                    %apply mask on each scan and save as a mat file
+                    for tt = 1:size(cur_t,1)
+                        [Y, XYZ] = spm_read_vols(spm_vol(fullfile(data_path, cur_runs(rr).name, cur_t(tt).name))); %image
+                        [Ycl, XYZ] = spm_read_vols(spm_vol(fullfile(masks_path, all_masks(m).name))); %mask
+                        masked_Scans = apply_mask(Y, Ycl);
+                        data = reshape(masked_Scans, 91*109*91, 1)';
+                        all_t_per_run(tt,:) = data;
+                    end
+                 all_t_all_blocks{rr, :} = all_t_per_run; 
+                 clear all_t_per_run
+
+                 feature_space = {cat(1,  all_t_all_blocks{:})};
+                 fs = feature_space{1};
+                 %save feature space per run per subject
+                 mask_name = split(all_masks(m).name, '.nii'); mask_name = mask_name{m};
+                 folder_fsp = fullfile(data_path, mask_name);
+                 mkdir(folder_fsp)
+                 mat_fl = fullfile(folder_fsp,'fs');
+                 save(mat_fl,'fs')
+                 clear feature_space fs all_t_all_blocks
+            end
+        end
+    end
+end
